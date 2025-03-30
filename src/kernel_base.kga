@@ -65,6 +65,9 @@ cpu_exec
     var catStr
     write "cat" to var:catStr
 
+    var compStr
+    write "diff" to var:compStr
+
 label kernel_start
     // Display prompt to enter the value:
     copy var:sys_work_dir to DISPLAY_BUFFER
@@ -97,6 +100,14 @@ label kernel_start
     cpu_exec
     copy REG_RES to var:parsedArg1
 
+    var parsedArg2
+    copy KEYBOARD_BUFFER to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:parsedArg2
+
     // Display a message with the first component of input:
     write "Parsed command:" to DISPLAY_BUFFER
     write "" to DISPLAY_COLOR
@@ -121,6 +132,12 @@ label kernel_start
     write OP_CMP_EQ to REG_OP
     cpu_exec
     jump_if label:cat_command
+
+    copy var:parsedStr to REG_A
+    copy var:compStr to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:compare_command
 
     jump label:kernel_start
 
@@ -177,6 +194,107 @@ label cat_command
         copy var:cat_command_file_desc to REG_A
         copy PROGRAM_COUNTER to var:sys_return
         jump label:sys_fs_close
+        jump label:kernel_start
+
+label compare_command
+    var file1
+    var file2
+
+    var fd1
+    var fd2
+
+    copy var:parsedArg1 to var:file1
+    copy var:parsedArg2 to var:file2
+
+    copy var:file1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:file_not_exist
+    copy REG_RES to var:fd1
+
+    copy var:file2 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:file_not_exist
+    copy REG_RES to var:fd2
+    
+    jump label:compare
+
+    label compare
+    var file_content_counter
+    var file1_line
+    var file2_line
+    write 1 to var:file_content_counter
+    label compare_loop
+        copy var:fd1 to REG_A
+        copy var:file_content_counter to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:compare_close_file1
+
+        copy REG_RES to var:file1_line
+
+        copy var:fd2 to REG_A
+        copy var:file_content_counter to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:compare_close_file2
+
+        copy REG_RES to var:file2_line
+
+        copy var:file1_line to REG_A
+        copy var:file2_line to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+
+        jump_if_not label:show_diff
+
+        copy var:file_content_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:file_content_counter
+
+        jump label:compare_loop
+
+    label compare_close_file1
+        copy var:fd1 to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        jump label:kernel_start
+
+    label compare_close_file2
+        copy var:fd2 to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        jump label:kernel_start
+
+    label show_diff
+        write "The number of line that differs is" to REG_A
+        copy var:file_content_counter to REG_B
+        write " " to REG_C
+        write OP_CONCAT_WITH to REG_OP
+        cpu_exec
+
+        copy REG_RES to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+
+        copy var:fd1 to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        
+        copy var:fd2 to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+
+        jump label:kernel_start
+
+    label file_not_exist
+        write "File doesn't exist" to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
         jump label:kernel_start
 
 
