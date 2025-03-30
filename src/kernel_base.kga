@@ -203,7 +203,18 @@ label compare_command
     var fd1
     var fd2
 
+    copy var:parsedArg1 to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_start
     copy var:parsedArg1 to var:file1
+
+    copy var:parsedArg2 to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_start
     copy var:parsedArg2 to var:file2
 
     copy var:file1 to REG_A
